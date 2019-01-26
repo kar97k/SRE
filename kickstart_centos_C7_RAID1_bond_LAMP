@@ -1,0 +1,82 @@
+#platform=x86, AMD64, or Intel EM64T
+#version=DEVEL
+# Firewall configuration
+firewall --disabled
+# Install OS instead of upgrade
+install
+# Use FTP installation media
+url --url="ftp://172.168.142.100/pub/" #May be ftp://username:password@server/path
+# Root password
+rootpw --iscrypted $1$IquNDrBv$kbjiht8aKyy5zaeTwjDGZ0
+# System authorization information
+auth useshadow passalgo=sha512
+# Use graphical install
+graphical
+firstboot disable
+# System keyboard
+keyboard us
+# System language
+lang en_US
+# SELinux configuration
+selinux disabled
+# Installation logging level
+logging level=info
+# System timezone
+timezone Europe/Moscow
+#Network Information
+network --bootproto=static --hostname=local.local --device=bond0 --gateway=192.168.142.1 --ip=192.168.142.101 --netmask=255.255.255.0 --noipv6 --nameserver=192.168.142.1 --onboot=on --activate --bondopts=mode=broadcast,miimon=100,updelay=200,downdelay=200 --bondslaves=ens9,ens10
+
+# System bootloader configuration
+bootloader --location=mbr
+clearpart --drives=sda,sdb
+zerombr
+#Disk partitioning
+
+# -- raid part for boot --
+part raid.sda0 --size 512 --asprimary --ondrive=sda
+part raid.sdb0 --size 512 --asprimary --ondrive=sdb
+
+# -- raid part for pv.1 --
+part raid.sda1 --size 1 --grow --ondrive=sda
+part raid.sdb1 --size 1 --grow --ondrive=sdb
+
+# Raid device creation
+raid /boot --fstype ext4 --device md0 --level=RAID1 raid.sda0 raid.sdb0
+raid pv.1 --size 1 --grow --device md1 --level=RAID1 raid.sda2 raid.sdb2
+
+# Volume group and logical volume creation
+volgroup volgrproot pv.1
+logvol / --fstype=ext4 --grow --vgname=volgrproot --name=logvolroot
+
+part swap --asprimary --fstype="swap" --size=1024
+part /boot --fstype xfs --size=300
+part pv.01 --size=1 --grow
+volgroup root_vg01 pv.01
+logvol / --fstype xfs --name=lv_01 --vgname=root_vg01 --size=1 --grow
+
+%post --interpreter=shell --log=/var/log/kickstart_post.log
+mkdir /root/.ssh
+
+%end
+
+%packages
+@^minimal
+epel-release
+vim
+net-tools
+lshw
+
+httpd
+mariadb-server
+mariadb
+php
+php-mysql
+php-fpm
+php-gd
+
+wget
+munin-node
+%end
+
+%addon com_redhat_kdump --disable --reserve-mb='auto'
+%end
